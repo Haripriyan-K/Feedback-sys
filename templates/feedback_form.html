@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Give Feedback{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card p-4">
+      <h4 class="mb-3">Share your feedback</h4>
+      <form method="POST" action="{{ url_for('feedback_form') }}">
+        <div class="mb-3">
+          <label class="form-label">Name</label>
+          <input type="text" name="name" class="form-control" value="{{ form.get('name', '') }}" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Register No.</label>
+          <input type="text" name="register_no" class="form-control" value="{{ form.get('register_no', '') }}" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Department</label>
+          <select name="department" class="form-select" required>
+            <option value="" disabled {% if not form.get('department') %}selected{% endif %}>Select department</option>
+            {% for d in departments %}
+              <option value="{{ d }}" {% if form.get('department') == d %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Category</label>
+          <select name="category" class="form-select" required>
+            <option value="" disabled {% if not form.get('category') %}selected{% endif %}>Select category</option>
+            {% for c in categories %}
+              <option value="{{ c }}" {% if form.get('category') == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Rating (1&ndash;5)</label>
+          <select name="rating" class="form-select" required>
+            <option value="" disabled {% if not form.get('rating') %}selected{% endif %}>Select rating</option>
+            {% for r in range(1, 6) %}
+              <option value="{{ r }}" {% if form.get('rating')|string == r|string %}selected{% endif %}>{{ r }} {{ '★' * r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Comments</label>
+          <textarea name="comments" class="form-control" rows="3">{{ form.get('comments', '') }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Submit Feedback</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
