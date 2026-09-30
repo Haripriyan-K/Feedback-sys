@@ -16,7 +16,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Simple hardcoded admin credentials (override via env vars in production)
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
@@ -24,7 +23,11 @@ DEPARTMENTS = [
     'Computer Science', 'Information Technology', 'Electronics',
     'Mechanical', 'Civil', 'Electrical', 'Other'
 ]
-CATEGORIES = ['Academics', 'Infrastructure', 'Faculty', 'Administration', 'Other']
+
+CATEGORIES = [
+    'Academics', 'Infrastructure', 'Faculty',
+    'Administration', 'Other'
+]
 
 
 class Feedback(db.Model):
@@ -35,7 +38,7 @@ class Feedback(db.Model):
     category = db.Column(db.String(80), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comments = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(20), nullable=False, default='pending')  # pending / resolved
+    status = db.Column(db.String(20), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def to_dict(self):
@@ -62,8 +65,6 @@ def login_required(f):
     return decorated
 
 
-# ---------- Public routes ----------
-
 @app.route('/')
 def index():
     return redirect(url_for('feedback_form'))
@@ -80,14 +81,19 @@ def feedback_form():
         comments = request.form.get('comments', '').strip()
 
         errors = []
+
         if not name:
             errors.append('Name is required.')
+
         if not register_no:
             errors.append('Register No. is required.')
+
         if department not in DEPARTMENTS:
             errors.append('Please select a valid department.')
+
         if category not in CATEGORIES:
             errors.append('Please select a valid category.')
+
         try:
             rating_val = int(rating)
             if rating_val < 1 or rating_val > 5:
@@ -99,33 +105,50 @@ def feedback_form():
         if errors:
             for e in errors:
                 flash(e, 'danger')
-            return render_template('feedback_form.html', departments=DEPARTMENTS,
-                                    categories=CATEGORIES, form=request.form)
+
+            return render_template(
+                'feedback_form.html',
+                departments=DEPARTMENTS,
+                categories=CATEGORIES,
+                form=request.form
+            )
 
         entry = Feedback(
-            name=name, register_no=register_no, department=department,
-            category=category, rating=rating_val, comments=comments
+            name=name,
+            register_no=register_no,
+            department=department,
+            category=category,
+            rating=rating_val,
+            comments=comments
         )
+
         db.session.add(entry)
         db.session.commit()
+
         flash('Thank you! Your feedback has been submitted.', 'success')
         return redirect(url_for('feedback_form'))
 
-    return render_template('feedback_form.html', departments=DEPARTMENTS, categories=CATEGORIES, form={})
+    return render_template(
+        'feedback_form.html',
+        departments=DEPARTMENTS,
+        categories=CATEGORIES,
+        form={}
+    )
 
-
-# ---------- Admin routes ----------
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
         username = request.form.get('username', '')
         password = request.form.get('password', '')
+
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['is_admin'] = True
             flash('Logged in successfully.', 'success')
             return redirect(url_for('admin_dashboard'))
+
         flash('Invalid username or password.', 'danger')
+
     return render_template('admin_login.html')
 
 
@@ -145,23 +168,47 @@ def admin_dashboard():
     status_filter = request.args.get('status', '')
 
     query = Feedback.query
+
     if dept_filter:
         query = query.filter_by(department=dept_filter)
+
     if cat_filter:
         query = query.filter_by(category=cat_filter)
+
     if rating_filter:
         query = query.filter_by(rating=int(rating_filter))
+
     if status_filter:
         query = query.filter_by(status=status_filter)
 
-    entries = query.order_by(Feedback.created_at.desc()).all()
+    entries = query.order_by(
+        Feedback.created_at.desc()
+    ).all()
 
     all_entries = Feedback.query.all()
+
     total_feedback = len(all_entries)
-    avg_rating = round(sum(e.rating for e in all_entries) / total_feedback, 2) if total_feedback else 0
-    pending_count = Feedback.query.filter_by(status='pending').count()
-    resolved_count = Feedback.query.filter_by(status='resolved').count()
-    recent_feedback = Feedback.query.order_by(Feedback.created_at.desc()).limit(5).all()
+
+    avg_rating = (
+        round(
+            sum(e.rating for e in all_entries) / total_feedback,
+            2
+        )
+        if total_feedback
+        else 0
+    )
+
+    pending_count = Feedback.query.filter_by(
+        status='pending'
+    ).count()
+
+    resolved_count = Feedback.query.filter_by(
+        status='resolved'
+    ).count()
+
+    recent_feedback = Feedback.query.order_by(
+        Feedback.created_at.desc()
+    ).limit(5).all()
 
     return render_template(
         'admin_dashboard.html',
@@ -180,27 +227,52 @@ def admin_dashboard():
     )
 
 
-@app.route('/admin/feedback/<int:feedback_id>/toggle-status', methods=['POST'])
+@app.route(
+    '/admin/feedback/<int:feedback_id>/toggle-status',
+    methods=['POST']
+)
 @login_required
 def toggle_status(feedback_id):
     entry = Feedback.query.get_or_404(feedback_id)
-    entry.status = 'resolved' if entry.status == 'pending' else 'pending'
+
+    entry.status = (
+        'resolved'
+        if entry.status == 'pending'
+        else 'pending'
+    )
+
     db.session.commit()
-    flash(f'Feedback #{entry.id} marked as {entry.status}.', 'success')
-    return redirect(request.referrer or url_for('admin_dashboard'))
+
+    flash(
+        f'Feedback #{entry.id} marked as {entry.status}.',
+        'success'
+    )
+
+    return redirect(
+        request.referrer or url_for('admin_dashboard')
+    )
 
 
-# ---------- Health / monitoring ----------
-
+# Health and monitoring endpoint
 @app.route('/health')
 def health():
     try:
-        db.session.execute(db.select(Feedback).limit(1))
+        db.session.execute(
+            db.select(Feedback).limit(1)
+        )
         db_status = 'connected'
     except Exception as exc:
-        return jsonify({'status': 'unhealthy', 'database': 'error', 'detail': str(exc)}), 500
-    return jsonify({'status': 'healthy', 'database': db_status,
-                     'timestamp': datetime.utcnow().isoformat() + 'Z'}), 200
+        return jsonify({
+            'status': 'unhealthy',
+            'database': 'error',
+            'detail': str(exc)
+        }), 500
+
+    return jsonify({
+        'status': 'healthy',
+        'database': db_status,
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    }), 200
 
 
 def create_tables():
@@ -210,6 +282,15 @@ def create_tables():
 
 create_tables()
 
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true')
+
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=os.environ.get(
+            'FLASK_DEBUG',
+            'false'
+        ).lower() == 'true'
+    )
